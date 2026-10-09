@@ -190,6 +190,19 @@ jobs:
             cp ../assets/shutdown-sound.ogg config/includes.chroot/usr/share/sounds/aylinux/shutdown-sound.ogg
           fi
 
+          # Duvar kagitlarini sisteme gom
+          mkdir -p config/includes.chroot/usr/share/wallpapers/AyLinux/contents/images
+          if [ -d ../assets/wallpapers ]; then
+            cp ../assets/wallpapers/* config/includes.chroot/usr/share/wallpapers/AyLinux/contents/images/
+          fi
+
+          # KDE Plasma varsayilan arkaplanini ayarla (Ataturk)
+          mkdir -p config/includes.chroot/etc/skel/.config
+          cat > config/includes.chroot/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc <<'WALLPAPER_EOF'
+[Containments][1][Wallpaper][org.kde.image][General]
+Image=file:///usr/share/wallpapers/AyLinux/contents/images/ataturk.jpg
+WALLPAPER_EOF
+
           chmod +x config/hooks/normal/*
 
       - name: ISO uret
