@@ -3,6 +3,9 @@ name: Build ISO
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -35,7 +38,7 @@ jobs:
             --iso-application "$OS_NAME" \
             --iso-publisher "$OS_NAME" \
             --iso-volume "$OS_NAME" \
-            --bootappend-live "boot=live components quiet splash plymouth.ignore-serial-consoles locales=tr_TR.UTF-8 keyboard-layouts=tr timezone=Europe/Istanbul"
+            --bootappend-live "boot=live components quiet splash plymouth.ignore-serial-consoles locales=tr_TR.UTF-8 keyboard-layouts=tr timezone=Europe/Istanbul username=aylinux hostname=aylinux user-fullname=AyLinux"
 
           mkdir -p config/package-lists config/archives config/hooks/normal
 
@@ -82,6 +85,11 @@ jobs:
           snapd
           plymouth
           plymouth-themes
+          neofetch
+          curl
+          wget
+          git
+          htop
           EOF
 
           # Backports: daha yeni kernel ve Mesa (oyun performansi icin)
@@ -158,6 +166,19 @@ jobs:
           systemctl enable aylinux-shutdown-sound.service || true
           EOF
 
+          # Resmi AyLinux APT Deposunu sisteme ekle (aytop ve resmi paketler icin)
+          mkdir -p config/includes.chroot/etc/apt/sources.list.d
+          echo "deb [trusted=yes] https://victors-lords.github.io/aylinux-repo ./" > config/includes.chroot/etc/apt/sources.list.d/aylinux.list
+
+          # SDDM Canli Oturum Icin Otomatik Giris (Autologin)
+          mkdir -p config/includes.chroot/etc/sddm.conf.d
+          cat > config/includes.chroot/etc/sddm.conf.d/autologin.conf <<'EOF'
+          [Autologin]
+          User=aylinux
+          Session=plasma
+          Relogin=false
+          EOF
+
           # Varsayilan tema: Papirus-Dark + Arc-Dark + Giris sesi
           mkdir -p config/includes.chroot/etc/skel/.config/autostart
           mkdir -p config/includes.chroot/usr/share/sounds/aylinux
@@ -171,6 +192,23 @@ jobs:
           widgetStyle=Breeze
           EOF
 
+          # Masaustu Kısayollari: Calamares Yukleyici
+          mkdir -p config/includes.chroot/etc/skel/Desktop
+          cat > config/includes.chroot/etc/skel/Desktop/calamares.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Version=1.0
+          Name=AyLinux Kur (Install AyLinux)
+          GenericName=Sistem Kurucu
+          Comment=AyLinux isletim sistemini kalici olarak diske kurun
+          Exec=sudo -E calamares
+          Icon=calamares
+          Terminal=false
+          Categories=System;
+          StartupNotify=true
+          EOF
+          chmod +x config/includes.chroot/etc/skel/Desktop/calamares.desktop
+
           # Giriste sesi oynatan autostart
           cat > config/includes.chroot/etc/skel/.config/autostart/aylinux-login-sound.desktop <<'EOF'
           [Desktop Entry]
@@ -182,18 +220,19 @@ jobs:
           X-GNOME-Autostart-enabled=true
           EOF
 
-          # Eger assets altinda sesler varsa kopyala
-          if [ -f ../assets/boot-sound.ogg ]; then
-            cp ../assets/boot-sound.ogg config/includes.chroot/usr/share/sounds/aylinux/boot-sound.ogg
-          fi
-          if [ -f ../assets/shutdown-sound.ogg ]; then
-            cp ../assets/shutdown-sound.ogg config/includes.chroot/usr/share/sounds/aylinux/shutdown-sound.ogg
+          # Eger assets altinda sesler varsa kopyala (.github/assets veya assets)
+          ASSET_DIR=""
+          if [ -d "../.github/assets" ]; then
+            ASSET_DIR="../.github/assets"
+          elif [ -d "../assets" ]; then
+            ASSET_DIR="../assets"
           fi
 
-          # Duvar kagitlarini sisteme gom
-          mkdir -p config/includes.chroot/usr/share/wallpapers/AyLinux/contents/images
-          if [ -d ../assets/wallpapers ]; then
-            cp ../assets/wallpapers/* config/includes.chroot/usr/share/wallpapers/AyLinux/contents/images/
+          if [ -n "$ASSET_DIR" ]; then
+            [ -f "$ASSET_DIR/boot-sound.ogg" ] && cp "$ASSET_DIR/boot-sound.ogg" config/includes.chroot/usr/share/sounds/aylinux/boot-sound.ogg || true
+            [ -f "$ASSET_DIR/shutdown-sound.ogg" ] && cp "$ASSET_DIR/shutdown-sound.ogg" config/includes.chroot/usr/share/sounds/aylinux/shutdown-sound.ogg || true
+            mkdir -p config/includes.chroot/usr/share/wallpapers/AyLinux/contents/images
+            [ -d "$ASSET_DIR/wallpapers" ] && cp -r "$ASSET_DIR/wallpapers/"* config/includes.chroot/usr/share/wallpapers/AyLinux/contents/images/ || true
           fi
 
           # KDE Plasma varsayilan arkaplanini ayarla (Ataturk)
@@ -206,8 +245,31 @@ jobs:
       - name: ISO uret
         run: cd iso && lb build
 
-      - name: ISO yukle
+      - name: ISO yukle (Artifacts)
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.OS_NAME }}-iso
           path: iso/*.iso
+
+      - name: GitHub Release Olustur ve ISO Yukle
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: v1.1
+          name: AyLinux v1.1 Canli Masaustu Surumu (Official)
+          draft: false
+          prerelease: false
+          body: |
+            # 🇹🇷 AyLinux v1.1 (Resmi Canli Masaustu Surumu)
+            
+            Tony Stark zihniyetiyle tabletten derlenen canavar gibi milli Linux dagitimi!
+            
+            ### ✨ Temel Ozellikler:
+            - **Masaustu Ortami:** KDE Plasma 6 + Arc-Dark / Papirus-Dark Temasi
+            - **Duvar Kagidi:** Varsayilan Ataturk Masaustu Gorseli
+            - **Ozel Sesler:** Giris & Cikis Ozel AyLinux Ses Efektleri
+            - **Gaming Altyapisi:** Steam, MangoHud, Vulkan Suruculeri, GameMode, 32-bit Kutuphaneler
+            - **Canli Oturum:** SDDM Parolasiz Otomatik Giris (Kullanici: `aylinux`)
+            - **Sistem Kurulumu:** Calamares Grafiksel Arayuzlu Yukleyici Masaustunde Hazir
+            - **Dahili Paket Deposu:** AyLinux Resmi APT Deposu (`sudo apt install aytop`)
+          files: iso/*.iso
