@@ -42,7 +42,7 @@ jobs:
 
           mkdir -p config/package-lists config/archives config/hooks/normal
 
-          # Paket listesi
+          # Paket listesi (Chromium kaldirildi, safkan Firefox ESR birakildi)
           cat > config/package-lists/aylinux.list.chroot <<'EOF'
           kde-plasma-desktop
           sddm
@@ -80,7 +80,6 @@ jobs:
           papirus-icon-theme
           arc-theme
           fonts-firacode
-          chromium
           synaptic
           snapd
           plymouth
@@ -91,16 +90,6 @@ jobs:
           git
           htop
           EOF
-
-          # Backports: daha yeni kernel ve Mesa (oyun performansi icin)
-          echo "deb http://deb.debian.org/debian trixie-backports main contrib non-free non-free-firmware" > config/archives/backports.list.chroot
-          cp config/archives/backports.list.chroot config/archives/backports.list.binary
-          cat > config/archives/backports.pref.chroot <<'EOF'
-          Package: linux-image-* mesa-* libgl1-mesa-dri libglx-mesa0 libegl-mesa0 libgbm1 libglapi-mesa
-          Pin: release a=trixie-backports
-          Pin-Priority: 900
-          EOF
-          cp config/archives/backports.pref.chroot config/archives/backports.pref.binary
 
           # Steam + 32-bit destek
           cat > config/hooks/normal/0100-gaming.hook.chroot <<'EOF'
@@ -166,17 +155,33 @@ jobs:
           systemctl enable aylinux-shutdown-sound.service || true
           EOF
 
-          # Resmi AyLinux APT Deposunu sisteme ekle (aytop ve resmi paketler icin)
+          # Sudoers ve Polkit: Canli kullaniciya tam sifresiz yetki (Calamares icin kritik)
+          mkdir -p config/includes.chroot/etc/sudoers.d
+          echo "aylinux ALL=(ALL) NOPASSWD: ALL" > config/includes.chroot/etc/sudoers.d/aylinux
+          chmod 0440 config/includes.chroot/etc/sudoers.d/aylinux
+
+          # Resmi AyLinux APT Deposunu sisteme ekle
           mkdir -p config/includes.chroot/etc/apt/sources.list.d
           echo "deb [trusted=yes] https://victors-lords.github.io/aylinux-repo ./" > config/includes.chroot/etc/apt/sources.list.d/aylinux.list
 
-          # SDDM Canli Oturum Icin Otomatik Giris (Autologin)
+          # SDDM Canli Oturum Icin Otomatik Giris (Wayland & X11 Uyumu)
           mkdir -p config/includes.chroot/etc/sddm.conf.d
           cat > config/includes.chroot/etc/sddm.conf.d/autologin.conf <<'EOF'
           [Autologin]
           User=aylinux
-          Session=plasma
+          Session=plasmawayland
           Relogin=false
+          EOF
+
+          # Oturum Fallback Hook: Wayland desktop dosyasi adina gore SDDM oturumunu saglamlastir
+          cat > config/hooks/normal/0600-sddm-session.hook.chroot <<'EOF'
+          #!/bin/sh
+          set -e
+          if [ ! -f /usr/share/wayland-sessions/plasmawayland.desktop ] && [ -f /usr/share/wayland-sessions/plasma.desktop ]; then
+            sed -i 's/Session=plasmawayland/Session=plasma/' /etc/sddm.conf.d/autologin.conf
+          elif [ ! -d /usr/share/wayland-sessions ]; then
+            sed -i 's/Session=plasmawayland/Session=plasma/' /etc/sddm.conf.d/autologin.conf
+          fi
           EOF
 
           # Varsayilan tema: Papirus-Dark + Arc-Dark + Giris sesi
@@ -272,9 +277,10 @@ jobs:
             ### ✨ Temel Ozellikler:
             - **Masaustu Ortami:** KDE Plasma 6 + Arc-Dark / Papirus-Dark Temasi
             - **Duvar Kagidi:** Varsayilan Ataturk Masaustu Gorseli
+            - **Tarayici:** Kararli ve Guvenli Firefox ESR
             - **Ozel Sesler:** Giris & Cikis Ozel AyLinux Ses Efektleri
             - **Gaming Altyapisi:** Steam, MangoHud, Vulkan Suruculeri, GameMode, 32-bit Kutuphaneler
-            - **Canli Oturum:** SDDM Parolasiz Otomatik Giris (Kullanici: `aylinux`)
+            - **Canli Oturum:** SDDM Parolasiz Otomatik Giris (Kullanici: `aylinux`, Sifresiz Sudo)
             - **Sistem Kurulumu:** Calamares Grafiksel Arayuzlu Yukleyici Masaustunde Hazir
             - **Dahili Paket Deposu:** AyLinux Resmi APT Deposu (`sudo apt install aytop`)
           files: iso/*.iso
