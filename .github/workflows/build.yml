@@ -198,10 +198,8 @@ jobs:
 
           # KDE Plasma varsayilan arkaplanini ayarla (Ataturk)
           mkdir -p config/includes.chroot/etc/skel/.config
-          cat > config/includes.chroot/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc <<'WALLPAPER_EOF'
-[Containments][1][Wallpaper][org.kde.image][General]
-Image=file:///usr/share/wallpapers/AyLinux/contents/images/ataturk.jpg
-WALLPAPER_EOF
+          echo "[Containments][1][Wallpaper][org.kde.image][General]" > config/includes.chroot/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc
+          echo "Image=file:///usr/share/wallpapers/AyLinux/contents/images/ataturk.jpg" >> config/includes.chroot/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc
 
           chmod +x config/hooks/normal/*
 
