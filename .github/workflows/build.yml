@@ -85,7 +85,7 @@ jobs:
           snapd
           plymouth
           plymouth-themes
-          neofetch
+          fastfetch
           curl
           wget
           git
