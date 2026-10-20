@@ -42,6 +42,23 @@ jobs:
 
           mkdir -p config/package-lists config/archives config/hooks/normal
 
+          # AyLinux araclari (ayfetch, day): depodaki packages/ klasorundeki .deb dosyalari ISO'ya gomulur.
+          # (Ayni mantikla ../.github/packages de aranir.) Eksikse build durur: araclarsiz ISO uretilmesin.
+          mkdir -p config/packages.chroot
+          PKG_DIR=""
+          for d in ../packages ../.github/packages; do
+            if [ -d "$d" ]; then PKG_DIR="$d"; break; fi
+          done
+          for p in ayfetch day; do
+            if ls "$PKG_DIR"/${p}_*.deb >/dev/null 2>&1; then
+              cp "$PKG_DIR"/${p}_*.deb config/packages.chroot/
+              echo "ISO'ya eklenecek paket: $(ls "$PKG_DIR"/${p}_*.deb | tr '\n' ' ')"
+            else
+              echo "::error::${p}_*.deb bulunamadi. Depoda packages/ klasorune ${p} .deb dosyasini koy."
+              exit 1
+            fi
+          done
+
           # Paket listesi (Chromium kaldirildi, safkan Firefox ESR birakildi)
           cat > config/package-lists/aylinux.list.chroot <<'EOF'
           kde-plasma-desktop
@@ -89,6 +106,10 @@ jobs:
           wget
           git
           htop
+          python3
+          python-is-python3
+          ayfetch
+          day
           EOF
 
           # Steam + 32-bit destek
@@ -283,4 +304,5 @@ jobs:
             - **Canli Oturum:** SDDM Parolasiz Otomatik Giris (Kullanici: `aylinux`, Sifresiz Sudo)
             - **Sistem Kurulumu:** Calamares Grafiksel Arayuzlu Yukleyici Masaustunde Hazir
             - **Dahili Paket Deposu:** AyLinux Resmi APT Deposu (`sudo apt install aytop`)
+            - **Hazir Araclar:** `ayfetch` (sistem bilgisi) ve `day` (.day sikistirilmis paket araci + goruntuleyici) kurulu gelir
           files: iso/*.iso
